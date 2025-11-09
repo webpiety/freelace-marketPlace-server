@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 2173;
@@ -14,6 +14,7 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+
 app.use(cors());
 app.use(express.json());
 
@@ -24,9 +25,54 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     await client.connect();
+    const db = client.db("freelance_db");
+    const userCollection = db.collection("users");
+
+
+
+
+
+    //Get all users API
+    app.get("/users", async (req, res) => {
+      const cursor = userCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // Post API for users
+    app.post("/users", async (req, res) => {
+      const newUser = req.body;
+      console.log("user", newUser);
+      const result = await userCollection.insertOne(newUser);
+      res.send(result);
+    });
+
+    // Update user
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateUser = req.body;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          name: updateUser.name,
+          email: updateUser.email,
+        },
+      };
+      const options = {};
+      const result = await userCollection.updateOne(query, update, options);
+      res.send(result);
+    });
+
+    // Delete user
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
-    console.log("Successfully connect to mongodb");
+    console.log("Successfully connected to MongoDB");
   } finally {
   }
 }
