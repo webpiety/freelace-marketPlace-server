@@ -27,10 +27,85 @@ async function run() {
     await client.connect();
     const db = client.db("freelance_db");
     const userCollection = db.collection("users");
+    const jobsCollection = db.collection("jobs");
+    const myJobsCollection = db.collection("myJobs");
+    const myTasksCollection = db.collection("myTasks");
 
+    //  Get all jobs
+    app.get("/jobs", async (req, res) => {
+      const cursor = jobsCollection.find();
+      const result = await cursor.toArray(cursor);
+      res.send(result);
+    });
+    // My added jobs
+    app.get("/myAddedJobs", (req, res) => {
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      const cursor = jobsCollection.find(query);
+      const result = cursor.toArray();
+      res.send(result);
+    });
 
+    // my-accepted-tasks
+    app.get("/my-accepted-tasks", (req, res) => {
+      const email = req.query.email;
+      const status = req.query.status;
+      const query = {};
+      if (email) {
+        query.userEmail = email;
+      }
+      if (status) {
+        query.status = "done";
+      }
+      const cursor = jobsCollection.find(query);
+      const result = cursor.toArray();
+      res.send(result);
+    });
 
+    // Update job
+    app.patch("/jobs", async (req, res) => {
+      const id = req.params.id;
+      const updateJob = req.body;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          title: updateUser.title,
+          postedBy: updateUser.postedBy,
+          category: updateUser.category,
+          summary: updateUser.summary,
+          coverImage: updateUser.coverImage,
+          userEmail: updateUser.userEmail,
+        },
+      };
+      const result = jobsCollection.updateOne(query, update);
+      res.send(result);
+    });
 
+    //  Get a single job details
+    app.get("/jobs:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await jobsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // Add a jobs
+    app.post("/jobs", async (req, res) => {
+      const newJob = req.body;
+      const result = await jobsCollection.insertOne(newJob);
+      res.send(result);
+    });
+
+    // Delete job
+    app.delete("/delete", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = jobsCollection.deleteOne(query);
+      res.send(result);
+    });
 
     //Get all users API
     app.get("/users", async (req, res) => {
