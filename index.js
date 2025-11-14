@@ -31,19 +31,25 @@ async function run() {
     const myJobsCollection = db.collection("myJobs");
     const bannerCollection = db.collection("banner");
 
-    //my task get api
-    app.get("/myTasks", async (req, res) => {
-      const cursor = myJobsCollection.find();
-      const result = await cursor.toArray();
+    //patch task api
+    app.patch("/myTasks/:id", async (req, res) => {
+      const id = req.params.id;
+      const updateTask = req.body;
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: {
+          status: updateTask.status,
+        },
+      };
+      const result = await myJobsCollection.updateOne(query, update);
       res.send(result);
     });
+
     //myTask post Api
     app.post("/myTasks", async (req, res) => {
       try {
         const newTask = req.body;
-
         newTask._id = new ObjectId(newTask._id);
-
         const exists = await myJobsCollection.findOne({
           user_email: newTask.user_email,
           jobApplyId: newTask.jobApplyId,
@@ -61,6 +67,20 @@ async function run() {
       } catch (error) {
         res.status(500).send({ message: error.message });
       }
+    });
+    //my task get api
+    app.get("/myTasks", async (req, res) => {
+      const cursor = myJobsCollection.find();
+      const result = await cursor.toArray(cursor);
+      res.send(result);
+    });
+
+    // myTask delete api
+    app.delete("/myTasks/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await myJobsCollection.deleteOne(query);
+      res.send(result);
     });
 
     // Banner Api
@@ -87,22 +107,6 @@ async function run() {
       const query = {};
       if (email) {
         query.userEmail = email;
-      }
-      const cursor = jobsCollection.find(query);
-      const result = cursor.toArray();
-      res.send(result);
-    });
-
-    // my-accepted-tasks
-    app.get("/my-accepted-tasks", (req, res) => {
-      const email = req.query.email;
-      const status = req.query.status;
-      const query = {};
-      if (email) {
-        query.userEmail = email;
-      }
-      if (status) {
-        query.status = "done";
       }
       const cursor = jobsCollection.find(query);
       const result = cursor.toArray();
