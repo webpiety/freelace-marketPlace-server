@@ -29,11 +29,55 @@ async function run() {
     const userCollection = db.collection("users");
     const jobsCollection = db.collection("jobs");
     const myJobsCollection = db.collection("myJobs");
-    const myTasksCollection = db.collection("myTasks");
+    const bannerCollection = db.collection("banner");
 
+    //my task get api
+    app.get("/myTasks", async (req, res) => {
+      const cursor = myJobsCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    //myTask post Api
+    app.post("/myTasks", async (req, res) => {
+      try {
+        const newTask = req.body;
+
+        newTask._id = new ObjectId(newTask._id);
+
+        const exists = await myJobsCollection.findOne({
+          user_email: newTask.user_email,
+          jobApplyId: newTask.jobApplyId,
+        });
+
+        if (exists) {
+          return res.status(400).send({
+            success: false,
+            message: "You already applied to this job",
+          });
+        }
+
+        const result = await myJobsCollection.insertOne(newTask);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    // Banner Api
+    app.get("/banner", async (req, res) => {
+      const cursor = bannerCollection.find();
+      const result = await cursor.toArray(cursor);
+      res.send(result);
+    });
     //  Get all jobs
     app.get("/jobs", async (req, res) => {
       const cursor = jobsCollection.find();
+      const result = await cursor.toArray(cursor);
+      res.send(result);
+    });
+    // latest jobs
+    app.get("/jobs/latest", async (req, res) => {
+      const cursor = jobsCollection.find().sort({ createdDate: -1 }).limit(6);
       const result = await cursor.toArray(cursor);
       res.send(result);
     });
@@ -85,7 +129,7 @@ async function run() {
     });
 
     //  Get a single job details
-    app.get("/jobs:id", async (req, res) => {
+    app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobsCollection.findOne(query);
