@@ -3,7 +3,13 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 require("dotenv").config();
+const admin = require("firebase-admin");
 const port = process.env.PORT || 2173;
+
+const serviceAccount = require("./freelance-firebase-adminsdk.json");
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ng2yszq.mongodb.net/?appName=Cluster0`;
 
@@ -17,6 +23,29 @@ const client = new MongoClient(uri, {
 
 app.use(cors());
 app.use(express.json());
+
+// Middleware
+const logger = (req, res, next) => {
+  next();
+};
+
+const verifyFirebaseToken = async (req, res, next) => {
+  console.log("in the verify middleware", req.headers.authorization);
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+  const token = req.headers.authorization.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+  try {
+    const userInfo = await admin.auth().verifyIdToken(token);
+    console.log("After token verify", userInfo);
+    next();
+  } catch {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+};
 
 app.get("/", (req, res) => {
   res.send("Server id running fine");
@@ -46,11 +75,9 @@ async function run() {
     });
 
     //myTask post Api
-    app.post("/myTasks", async (req, res) => {
+    app.post("/myTasks", logger, verifyFirebaseToken, async (req, res) => {
       try {
         const newTask = req.body;
-
-        // Find the job
         const matchingJob = await jobsCollection.findOne({
           _id: new ObjectId(newTask.jobApplyId),
         });
@@ -58,13 +85,10 @@ async function run() {
         if (!matchingJob) {
           return res.status(404).send("Job not found");
         }
-
-        // Prevent user from applying to their own job
         if (matchingJob.userEmail === newTask.user_email) {
           return res.status(400).send("You can't apply to your own job");
         }
 
-        // Prevent applying to the same job twice
         const exists = await myJobsCollection.findOne({
           user_email: newTask.user_email,
           jobApplyId: newTask.jobApplyId,
@@ -74,7 +98,6 @@ async function run() {
           return res.status(400).send("You already applied to this job");
         }
 
-        // Insert the new task
         const result = await myJobsCollection.insertOne(newTask);
         res.send(result);
       } catch (error) {
@@ -83,7 +106,7 @@ async function run() {
     });
 
     //my task get api
-    app.get("/myTasks", async (req, res) => {
+    app.get("/myTasks", logger, verifyFirebaseToken, async (req, res) => {
       const cursor = myJobsCollection.find();
       const result = await cursor.toArray(cursor);
       res.send(result);
@@ -117,7 +140,8 @@ async function run() {
       res.send(result);
     });
     //  Get all jobs
-    app.get("/jobs", async (req, res) => {
+    app.get("/jobs", logger, verifyFirebaseToken, async (req, res) => {
+      console.log("Header", req.headers);
       const cursor = jobsCollection.find();
       const result = await cursor.toArray(cursor);
       res.send(result);
@@ -129,7 +153,7 @@ async function run() {
       res.send(result);
     });
     // My added jobs
-    app.get("/myAddedJobs", (req, res) => {
+    app.get("/myAddedJobs", logger, verifyFirebaseToken, (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
@@ -159,7 +183,7 @@ async function run() {
     });
 
     //  Get a single job details
-    app.get("/jobs/:id", async (req, res) => {
+    app.get("/jobs/:id", logger, verifyFirebaseToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobsCollection.findOne(query);
@@ -167,7 +191,7 @@ async function run() {
     });
 
     // Add a jobs
-    app.post("/jobs", async (req, res) => {
+    app.post("/jobs", logger, verifyFirebaseToken, async (req, res) => {
       const newJob = req.body;
       const result = await jobsCollection.insertOne(newJob);
       res.send(result);
@@ -193,30 +217,6 @@ async function run() {
       const newUser = req.body;
       console.log("user", newUser);
       const result = await userCollection.insertOne(newUser);
-      res.send(result);
-    });
-
-    // Update user
-    app.patch("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      const updateUser = req.body;
-      const query = { _id: new ObjectId(id) };
-      const update = {
-        $set: {
-          name: updateUser.name,
-          email: updateUser.email,
-        },
-      };
-      const options = {};
-      const result = await userCollection.updateOne(query, update, options);
-      res.send(result);
-    });
-
-    // Delete user
-    app.delete("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await userCollection.deleteOne(query);
       res.send(result);
     });
 
