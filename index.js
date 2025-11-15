@@ -75,7 +75,7 @@ async function run() {
     });
 
     //myTask post Api
-    app.post("/myTasks", logger, verifyFirebaseToken, async (req, res) => {
+    app.post("/myTasks", async (req, res) => {
       try {
         const newTask = req.body;
         const matchingJob = await jobsCollection.findOne({
@@ -106,7 +106,7 @@ async function run() {
     });
 
     //my task get api
-    app.get("/myTasks", logger, verifyFirebaseToken, async (req, res) => {
+    app.get("/myTasks", async (req, res) => {
       const cursor = myJobsCollection.find();
       const result = await cursor.toArray(cursor);
       res.send(result);
@@ -140,7 +140,7 @@ async function run() {
       res.send(result);
     });
     //  Get all jobs
-    app.get("/jobs", logger, verifyFirebaseToken, async (req, res) => {
+    app.get("/jobs", async (req, res) => {
       console.log("Header", req.headers);
       const cursor = jobsCollection.find();
       const result = await cursor.toArray(cursor);
@@ -153,7 +153,7 @@ async function run() {
       res.send(result);
     });
     // My added jobs
-    app.get("/myAddedJobs", logger, verifyFirebaseToken, (req, res) => {
+    app.get("/myAddedJobs", (req, res) => {
       const email = req.query.email;
       const query = {};
       if (email) {
@@ -183,7 +183,7 @@ async function run() {
     });
 
     //  Get a single job details
-    app.get("/jobs/:id", logger, verifyFirebaseToken, async (req, res) => {
+    app.get("/jobs/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await jobsCollection.findOne(query);
@@ -191,7 +191,7 @@ async function run() {
     });
 
     // Add a jobs
-    app.post("/jobs", logger, verifyFirebaseToken, async (req, res) => {
+    app.post("/jobs", async (req, res) => {
       const newJob = req.body;
       const result = await jobsCollection.insertOne(newJob);
       res.send(result);
