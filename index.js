@@ -49,25 +49,39 @@ async function run() {
     app.post("/myTasks", async (req, res) => {
       try {
         const newTask = req.body;
-        newTask._id = new ObjectId(newTask._id);
+
+        // Find the job
+        const matchingJob = await jobsCollection.findOne({
+          _id: new ObjectId(newTask.jobApplyId),
+        });
+
+        if (!matchingJob) {
+          return res.status(404).send("Job not found");
+        }
+
+        // Prevent user from applying to their own job
+        if (matchingJob.userEmail === newTask.user_email) {
+          return res.status(400).send("You can't apply to your own job");
+        }
+
+        // Prevent applying to the same job twice
         const exists = await myJobsCollection.findOne({
           user_email: newTask.user_email,
           jobApplyId: newTask.jobApplyId,
         });
 
         if (exists) {
-          return res.status(400).send({
-            success: false,
-            message: "You already applied to this job",
-          });
+          return res.status(400).send("You already applied to this job");
         }
 
+        // Insert the new task
         const result = await myJobsCollection.insertOne(newTask);
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: error.message });
       }
     });
+
     //my task get api
     app.get("/myTasks", async (req, res) => {
       const cursor = myJobsCollection.find();
@@ -77,10 +91,23 @@ async function run() {
 
     // myTask delete api
     app.delete("/myTasks/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await myJobsCollection.deleteOne(query);
-      res.send(result);
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await myJobsCollection.deleteOne(query);
+
+        if (result.deletedCount === 1) {
+          res.status(200).json({
+            message: "Task deleted successfully",
+            deletedCount: 1,
+          });
+        } else {
+          res.status(404).json({ message: "Task not found", deletedCount: 0 });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal Server Error" });
+      }
     });
 
     // Banner Api
@@ -114,21 +141,20 @@ async function run() {
     });
 
     // Update job
-    app.patch("/jobs", async (req, res) => {
+    app.patch("/jobs/:id", async (req, res) => {
       const id = req.params.id;
       const updateJob = req.body;
+
       const query = { _id: new ObjectId(id) };
       const update = {
         $set: {
-          title: updateUser.title,
-          postedBy: updateUser.postedBy,
-          category: updateUser.category,
-          summary: updateUser.summary,
-          coverImage: updateUser.coverImage,
-          userEmail: updateUser.userEmail,
+          title: updateJob.title,
+          category: updateJob.category,
+          summary: updateJob.summary,
+          coverImage: updateJob.coverImage,
         },
       };
-      const result = jobsCollection.updateOne(query, update);
+      const result = await jobsCollection.updateOne(query, update);
       res.send(result);
     });
 
